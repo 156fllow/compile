@@ -65,37 +65,42 @@ void print_tok()
 
 void statement(void)
 {
-	print_tok();
+	// print_tok();
 
 	if (tok.attr == NUMBER)
 	{
+		fprintf(outfile, "loadi r0,%d\n", tok.value);
 		getsym();
 
 		if (tok.attr == SYMBOL || tok.attr == RWORD)
 		{
+			
 			switch (tok.value)
 			{
 			case PLUS:
-				print_tok();
 				getsym();
-				print_tok();
+				// print_tok();
+				fprintf(outfile, "addi r0,%d\n", tok.value);
 				break;
 			case MINUS:
-				print_tok();
 				getsym();
-				print_tok();
+				// print_tok();
+				fprintf(outfile, "subi r0,%d\n", tok.value);
 				break;
 			case TIMES:
-				print_tok();
 				getsym();
-				print_tok();
+				// print_tok();
+				fprintf(outfile, "muli r0,%d\n", tok.value);
 				break;
 			case DIV:
-				print_tok();
 				getsym();
-				print_tok();
+				// print_tok();
+				fprintf(outfile, "divi r0,%d\n", tok.value);
 				break;
 			}
+			fprintf(outfile, "writed r0\n");
+			fprintf(outfile, "loadi r1,'\\n'\n");
+			fprintf(outfile, "writec r1\n");
 			getsym();
 		}
 	}
@@ -105,7 +110,7 @@ void statement(void)
 		{
 			getsym();
 			statement();
-			print_tok();
+			// print_tok();
 		}
 	}
 
