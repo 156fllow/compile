@@ -31,7 +31,7 @@ compiler: $(OBJS)
 
 main.o: main.c
 	$(CC) main.c -c $(OPTS)
-parse.o: parse.c
+parse.o: parse.c parse.h
 	$(CC) parse.c -c $(OPTS)
 
 asm:
