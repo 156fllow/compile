@@ -71,19 +71,24 @@ void statement(void){
 	if(tok.attr == IDENTIFIER){
 		// identifier read
 		int i;
-		int var_address;
+		int var_address = -1;
 		for(i=0;i<S_TABLELEN;i++){
 			if(strcmp(tok.charvalue,s_table[i].v) == 0){
 				var_address = s_table[i].addr;
 				break;
 			}
 		}
-		printf("%d",var_address);
+		if(var_address == -1){
+			char output[MAXIDLEN+10];
+			strcat(output,"not found ");
+			error(strcat(output,tok.charvalue));
+		}
+		// printf("%d",var_address);
 		getsym();
 		print_tok();
 		if(tok.value == BECOMES){
 			getsym();
-			expression();
+			expression(0);
 			fprintf(outfile,"store r0,%d\n",var_address);
 		}else{
 			error("NOT FOUND BECOMS");
@@ -150,12 +155,19 @@ void statement(void){
 			print_tok();
 			while(tok.attr == IDENTIFIER){
 				int i;
+				int flag = -1;
 				for(i=0;i<S_TABLELEN;i++){
 					if(strcmp(tok.charvalue,s_table[i].v) == 0){
 						fprintf(outfile,"load r0,%d\n",s_table[i].addr);
 						fprintf(outfile,"writed r0\n");
+						flag = 1;
 						break;
 					}
+				}
+				if(flag == -1){
+					char output[MAXIDLEN+10];
+					strcat(output,"not found ");
+					error(strcat(output,tok.charvalue));
 				}
 
 				getsym();
@@ -175,176 +187,196 @@ void statement(void){
 	}
 }
 
-// r0に計算結果を返す
-void expression(void){
+// rnに計算結果を返す
+void expression(int n){
 
-	print_tok();	
-	if(tok.attr == NUMBER){
-		fprintf(outfile,"loadi r0,%d\n",tok.value);
+	print_tok();
+	
+	term(n);
+	if((tok.attr == SYMBOL && (tok.value == PLUS || tok.value == MINUS))){
+		while((tok.attr == SYMBOL && (tok.value == PLUS || tok.value == MINUS))){
+			if(tok.value == PLUS){
+				fprintf(outfile,"push r%d\n",(n+1)%4);
+				print_tok();
+				getsym();
+				term((n+1)%4);
+				fprintf(outfile,"addr r%d,r%d\n",n,(n+1)%4);
+				fprintf(outfile,"pop r%d\n",(n+1)%4);
+			}else if(tok.value == MINUS){
+				fprintf(outfile,"push r%d\n",(n+1)%4);
+				print_tok();
+				getsym();
+				term((n+1)%4);
+				fprintf(outfile,"subr r%d,r%d\n",n,(n+1)%4);
+				fprintf(outfile,"pop r%d\n",(n+1)%4);
+			}
+		}
 	}
-	else if(tok.attr == IDENTIFIER){
+
+}
+// rnに返す
+void term(int n){
+	print_tok();
+	factor(n);
+	if((tok.attr == SYMBOL && tok.value == TIMES) || (tok.attr == RWORD && tok.value == DIV)){
+		while((tok.attr == SYMBOL && tok.value == TIMES) || (tok.attr == RWORD && tok.value == DIV)){
+			if(tok.value == TIMES){
+				fprintf(outfile,"push r%d\n",(n+1)%4);	
+				print_tok();
+				getsym();
+				factor((n+1)%4);
+				fprintf(outfile,"mulr r%d,r%d\n",n,(n+1)%4);
+				fprintf(outfile,"pop r%d\n",(n+1)%4);
+			}
+			else if(tok.value == DIV){
+				fprintf(outfile,"push r%d\n",(n+1)%4);
+				print_tok();
+				getsym();
+				factor((n+1)%4);
+				fprintf(outfile,"divr r%d,r%d\n",n,(n+1)%4);
+				fprintf(outfile,"pop r%d\n",(n+1)%4);
+			}
+		}
+	}
+}
+// rnに返す
+void factor(int n){
+
+	bool minus_flag  = false;
+
+	if(tok.attr == SYMBOL && tok.value == MINUS){
+		minus_flag = true;
+		print_tok();
+		getsym();
+
+	}
+
+
+	if(tok.attr == IDENTIFIER){
+		print_tok();
+		// identifier read
 		int i;
+		int var_address = -1;
 		for(i=0;i<S_TABLELEN;i++){
 			if(strcmp(tok.charvalue,s_table[i].v) == 0){
-				fprintf(outfile,"load r0,%d\n",s_table[i].addr);
+				var_address = s_table[i].addr;
 				break;
 			}
+		}
+		if(var_address == -1){
+			char temp[MAXIDLEN+1+14] = "not found var ";
+			error(strcat(temp,tok.charvalue));
+		}
+		if(minus_flag == false){
+			fprintf(outfile,"load r%d,%d\n",n,var_address);
+			// fprintf(outfile,"push r2");
+		}
+		else if(minus_flag == true){
+			fprintf(outfile,"load r%d,-%d\n",n,var_address);
+			// fprintf(outfile,"push r2");
+		}
+
+	}
+	else if(tok.attr == NUMBER){
+		print_tok();
+		if(minus_flag == false){
+			fprintf(outfile,"loadi r%d,%d\n",n,tok.value);
+		}
+		else if(minus_flag == true){
+			fprintf(outfile,"loadi r%d,%d\n",n,-tok.value);
+		}
+	}else if(tok.attr == SYMBOL && tok.value == LPAREN){
+		print_tok();
+		getsym();
+		expression(n);
+		if(minus_flag == true){
+			fprintf(outfile,"muli r%d -1\n",n);
+		}
+		if(tok.attr == SYMBOL && tok.value == RPAREN){
+			print_tok();
 		}
 	}
 
 	getsym();
-	
 
-	if(tok.attr == RWORD || tok.attr == SYMBOL){
-		
-		if(tok.value == PLUS){
-			getsym();
-			if(tok.attr == NUMBER){
-				fprintf(outfile,"addi r0,%d\n",tok.value);
-
-			}else if(tok.attr == IDENTIFIER){
-				int i;
-				for(i=0;i<S_TABLELEN;i++){
-					if(strcmp(tok.charvalue,s_table[i].v) == 0){
-						fprintf(outfile,"load r1,%d\n",s_table[i].addr);
-						break;
-					}
-				}
-				fprintf(outfile,"addr r0,r1\n");
-
-			}else{
-				error("SYNTAX ERROR IN EXPRESSION");
-			}
-			getsym();
-
-		}else if(tok.value == MINUS){
-			getsym();
-			if(tok.attr == NUMBER){
-				fprintf(outfile,"subi r0,%d\n",tok.value);
-
-			}else if(tok.attr == IDENTIFIER){
-				int i;
-				for(i=0;i<S_TABLELEN;i++){
-					if(strcmp(tok.charvalue,s_table[i].v) == 0){
-						fprintf(outfile,"load r1,%d\n",s_table[i].addr);
-						break;
-					}
-				}
-				fprintf(outfile,"subr r0,r1\n");
-
-			}else{
-				error("SYNTAX ERROR IN EXPRESSION");
-			}
-			getsym();
-
-		}else if(tok.value == TIMES){
-			getsym();
-			
-			if(tok.attr == NUMBER){
-				fprintf(outfile,"muli r0,%d\n",tok.value);
-			}else if(tok.attr == IDENTIFIER){
-				int i;
-				for(i=0;i<S_TABLELEN;i++){
-					if(strcmp(tok.charvalue,s_table[i].v) == 0){
-						fprintf(outfile,"load r1,%d\n",s_table[i].addr);
-						break;
-					}
-				}
-				fprintf(outfile,"mulr r0,r1\n");
-			}else{
-				error("SYNTAX ERROR IN EXPRESSION");
-			}
-			getsym();
-
-		}else if(tok.value == DIV){
-			getsym();
-			if(tok.attr == NUMBER){
-				fprintf(outfile,"divi r0,%d\n",tok.value);
-
-			}else if(tok.attr == IDENTIFIER){
-				int i;
-				for(i=0;i<S_TABLELEN;i++){
-					if(strcmp(tok.charvalue,s_table[i].v) == 0){
-						fprintf(outfile,"load r1,%d\n",s_table[i].addr);
-						break;
-					}
-				}
-				fprintf(outfile,"divr r0,r1\n");
-			}else{
-				error("SYNTAX ERROR IN EXPRESSION");
-			}
-			getsym();
-		}
-	
-	}
 }
 
 void outblock(void){
 	int address = 0;
 	print_tok();
 	if(tok.attr == RWORD && tok.value == VAR){
-		getsym();
-		print_tok();
-		strcpy(s_table[address].v,tok.charvalue);
-		s_table[address].addr = address;
-		address++;
-		getsym();
-		while(tok.value == COMMA){
-			print_tok();
+		do{
 			getsym();
+			print_tok();
 			strcpy(s_table[address].v,tok.charvalue);
-			s_table[address].addr = address;
+			s_table[address].addr = address + VAR_BASEADDR;
 			address++;
-		}
-		print_tok();
+			getsym();
+			print_tok();
+		}while(tok.value == COMMA);
 		if(tok.value == SEMICOLON){
 			getsym();
 			statement();
 		}
 	}
+	print_symboltable();
 	fprintf(outfile,"halt\n");
 }
 
 void condition(int index){
-	expression();
+	fprintf(outfile,"push r0\n");
+	expression(0);
+	fprintf(outfile,"push r1\n");
 	fprintf(outfile,"loadr r1,r0\n");
 	print_tok();
 	if(tok.attr == SYMBOL){
 		if(tok.value == EQL){
 			getsym();
 			// print_tok();
-			expression();
+			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
+			fprintf(outfile,"pop r1\n");
+			fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jnz L%d\n",index);
 		}else if(tok.value == NOTEQL){
 			getsym();
 			// print_tok();
-			expression();
+			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
+			fprintf(outfile,"pop r1\n");
+			fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jz L%d\n",index);
 		}else if(tok.value == LESSTHAN){
 			getsym();
 			// print_tok();
-			expression();
+			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
+			fprintf(outfile,"pop r1\n");
+			fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jge L%d\n",index);
 		}else if(tok.value == GRTRTHAN){
 			getsym();
 			// print_tok();
-			expression();
+			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
+			fprintf(outfile,"pop r1\n");
+			fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jle L%d\n",index);
 		}else if(tok.value == LESSEQL){
 			getsym();
 			// print_tok();
-			expression();
+			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
+			fprintf(outfile,"pop r1\n");
+			fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jgt L%d\n",index);
 		}else if(tok.value == GRTREQL){
 			getsym();
 			// print_tok();
-			expression();
+			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
+			fprintf(outfile,"pop r1\n");
+			fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jlt L%d\n",index);
 		}else{
 			error("syntax error in condition");
@@ -352,4 +384,5 @@ void condition(int index){
 	}else{
 		error("syntax error in condition");
 	}
+
 }
