@@ -279,11 +279,26 @@ void factor(int n){
 	}
 	else if(tok.attr == NUMBER){
 		print_tok();
-		if(minus_flag == false){
-			fprintf(outfile,"loadi r%d,%d\n",n,tok.value);
-		}
-		else if(minus_flag == true){
-			fprintf(outfile,"loadi r%d,%d\n",n,-tok.value);
+		if(-32768 <= tok.value && tok.value <= 32767){
+			if(minus_flag == false){
+				fprintf(outfile,"loadi r%d,%d\n",n,tok.value);
+			}
+			else if(minus_flag == true){
+				fprintf(outfile,"loadi r%d,%d\n",n,-tok.value);
+			}
+		}else{
+			if(minus_flag == false){
+				v_table[v_label].label_count = v_label;
+				v_table[v_label].value = tok.value;
+				fprintf(outfile,"load r%d,label%d\n",n,v_label);
+				v_label++;
+			}
+			else if(minus_flag == true){
+				v_table[v_label].label_count = v_label;
+				v_table[v_label].value = -tok.value;
+				fprintf(outfile,"load r%d,label%d\n",n,v_label);
+				v_label++;
+			}
 		}
 	}else if(tok.attr == SYMBOL && tok.value == LPAREN){
 		print_tok();
@@ -321,6 +336,10 @@ void outblock(void){
 	}
 	print_symboltable();
 	fprintf(outfile,"halt\n");
+	int i;
+	for(i=0;i<v_label;i++){
+		fprintf(outfile,"label%d: data %d\n",v_table[i].label_count,v_table[i].value);
+	}
 }
 
 void condition(int index){

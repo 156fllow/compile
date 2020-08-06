@@ -31,7 +31,13 @@ typedef struct{
 
 s_entry s_table[S_TABLELEN];
 
+typedef struct{
+    int label_count;
+    int value;
+}v_entry;
 
+v_entry v_table[S_TABLELEN];
+int v_label = 0;
 
 int jmp_label = 0;
 
