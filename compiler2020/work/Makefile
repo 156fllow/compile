@@ -41,4 +41,4 @@ sr:
 	$(SR) a.out
 
 clean:
-	-rm -f *.o *~ compiler
+	-rm -f *.o *~ compiler *.out *.asm

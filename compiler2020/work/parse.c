@@ -3,6 +3,7 @@
 void compiler(void)
 {
 	init_getsym();
+	stack_initialize();
 
 	getsym();
 	print_tok();
@@ -59,10 +60,22 @@ void print_tok()
 }
 
 void print_symboltable(){
-	printf("value\taddress\n");
+	printf("\nvalue\taddress\n");
 	int i=0;
 	for(i=0;i<S_TABLELEN;i++){
-		printf("%s\t%d\n",s_table[i].v,s_table[i].addr);
+		
+		if(strcmp(s_table[i].v,"") == 0){
+			continue;
+		}else{
+			printf("%s\t%d\n",s_table[i].v,s_table[i].addr);
+		}
+	}
+}
+
+void print_intermediate(){
+	int i=0;
+	for(i=0;i<i_stack.head;i++){
+		printf("%s\n",i_stack.data[i]);
 	}
 }
 
@@ -189,131 +202,257 @@ void statement(void){
 
 // rnに計算結果を返す
 void expression(int n){
-
 	print_tok();
+	i_stack_initialize();
+	o_stack_initialize();
 	
-	term(n);
-	if((tok.attr == SYMBOL && (tok.value == PLUS || tok.value == MINUS))){
-		while((tok.attr == SYMBOL && (tok.value == PLUS || tok.value == MINUS))){
-			if(tok.value == PLUS){
-				fprintf(outfile,"push r%d\n",(n+1)%4);
-				print_tok();
-				getsym();
-				term((n+1)%4);
-				fprintf(outfile,"addr r%d,r%d\n",n,(n+1)%4);
-				fprintf(outfile,"pop r%d\n",(n+1)%4);
-			}else if(tok.value == MINUS){
-				fprintf(outfile,"push r%d\n",(n+1)%4);
-				print_tok();
-				getsym();
-				term((n+1)%4);
-				fprintf(outfile,"subr r%d,r%d\n",n,(n+1)%4);
-				fprintf(outfile,"pop r%d\n",(n+1)%4);
-			}
-		}
-	}
+	o_push("$");
+	push("$");
 
-}
-// rnに返す
-void term(int n){
-	print_tok();
-	factor(n);
-	if((tok.attr == SYMBOL && tok.value == TIMES) || (tok.attr == RWORD && tok.value == DIV)){
-		while((tok.attr == SYMBOL && tok.value == TIMES) || (tok.attr == RWORD && tok.value == DIV)){
-			if(tok.value == TIMES){
-				fprintf(outfile,"push r%d\n",(n+1)%4);	
-				print_tok();
-				getsym();
-				factor((n+1)%4);
-				fprintf(outfile,"mulr r%d,r%d\n",n,(n+1)%4);
-				fprintf(outfile,"pop r%d\n",(n+1)%4);
-			}
-			else if(tok.value == DIV){
-				fprintf(outfile,"push r%d\n",(n+1)%4);
-				print_tok();
-				getsym();
-				factor((n+1)%4);
-				fprintf(outfile,"divr r%d,r%d\n",n,(n+1)%4);
-				fprintf(outfile,"pop r%d\n",(n+1)%4);
-			}
-		}
-	}
-}
-// rnに返す
-void factor(int n){
-
-	bool minus_flag  = false;
+	int label_num = 1;
 
 	if(tok.attr == SYMBOL && tok.value == MINUS){
-		minus_flag = true;
-		print_tok();
+		o_push("!");
+		push("!");
 		getsym();
-
+		print_tok();
 	}
 
+	do{
+		if(tok.attr == IDENTIFIER){
+			push(tok.charvalue);
+			getsym();
+			print_tok();
 
-	if(tok.attr == IDENTIFIER){
-		print_tok();
-		// identifier read
-		int i;
-		int var_address = -1;
-		for(i=0;i<S_TABLELEN;i++){
-			if(strcmp(tok.charvalue,s_table[i].v) == 0){
-				var_address = s_table[i].addr;
-				break;
-			}
-		}
-		if(var_address == -1){
-			char temp[MAXIDLEN+1+14] = "not found var ";
-			error(strcat(temp,tok.charvalue));
-		}
-		if(minus_flag == false){
-			fprintf(outfile,"load r%d,%d\n",n,var_address);
-			// fprintf(outfile,"push r2");
-		}
-		else if(minus_flag == true){
-			fprintf(outfile,"load r%d,-%d\n",n,var_address);
-			// fprintf(outfile,"push r2");
-		}
+		}else if(tok.attr == NUMBER){
+			push(tok.charvalue);
+			getsym();
+			print_tok();
 
-	}
-	else if(tok.attr == NUMBER){
-		print_tok();
-		if(-32768 <= tok.value && tok.value <= 32767){
-			if(minus_flag == false){
-				fprintf(outfile,"loadi r%d,%d\n",n,tok.value);
+		}else if(tok.attr == RWORD){
+			if(tok.value == DIV){
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}else{
+						o_push("div");
+						push("div");
+						break;
+					}
+				}
+				getsym();
+				print_tok();
+				// if(tok.value == MINUS){
+				// 	if(opeEval(o_stack.data[o_stack.head-1],"!") == 1){
+
+				// 	}
+				// }
+			}else{
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],"$") == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}
+					else if(opeEval(o_stack.data[o_stack.head-1],"$") == 0){
+						goto E;
+					}
+				}
+				
 			}
-			else if(minus_flag == true){
-				fprintf(outfile,"loadi r%d,%d\n",n,-tok.value);
+
+		}else if(tok.attr == SYMBOL){
+			if(tok.value == PLUS){
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}else{
+						o_push("+");
+						push("+");
+						break;
+					}
+				}
+			}else if(tok.value == MINUS){
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}else{
+						o_push("-");
+						push("-");
+						break;
+					}
+				}
+			}else if(tok.value == TIMES){
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}else{
+						o_push("*");
+						push("*");
+						break;
+					}
+				}
+			}else if(tok.value == LPAREN){
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}else{
+						o_push("(");
+						push("(");
+						break;
+					}
+				}
+			}else if(tok.value == RPAREN){
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}else if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 0){
+						char temp[MAXIDLEN + 1];
+						strcpy(temp,pop());
+						o_pop();
+						pop();
+						push(temp);
+						print_tok();
+						break;
+					}
+					else{
+						o_push(")");
+						push(")");
+						break;
+					}
+				}
+			}else{
+				while(true){
+					if(opeEval(o_stack.data[o_stack.head-1],"$") == 1){
+						char t3[MAXIDLEN+1];
+						char t2[MAXIDLEN+1];
+						char t1[MAXIDLEN+1];
+						strcpy(t3,pop());
+						strcpy(t2,pop());
+						strcpy(t1,pop());
+						o_pop();
+						char intermediate_temp[50]; 
+						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						i_push(intermediate_temp);
+						char t_push[MAXIDLEN + 1];
+						sprintf(t_push,"T%d",label_num);
+						push(t_push);
+						label_num++;
+						print_tok();
+					}
+					else if(opeEval(o_stack.data[o_stack.head-1],"$") == 0){
+						goto E;
+					}
+				}
 			}
-		}else{
-			if(minus_flag == false){
-				v_table[v_label].label_count = v_label;
-				v_table[v_label].value = tok.value;
-				fprintf(outfile,"load r%d,label%d\n",n,v_label);
-				v_label++;
-			}
-			else if(minus_flag == true){
-				v_table[v_label].label_count = v_label;
-				v_table[v_label].value = -tok.value;
-				fprintf(outfile,"load r%d,label%d\n",n,v_label);
-				v_label++;
-			}
-		}
-	}else if(tok.attr == SYMBOL && tok.value == LPAREN){
-		print_tok();
-		getsym();
-		expression(n);
-		if(minus_flag == true){
-			fprintf(outfile,"muli r%d -1\n",n);
-		}
-		if(tok.attr == SYMBOL && tok.value == RPAREN){
+			getsym();
 			print_tok();
 		}
+
+	}while(true);
+
+
+	E:;
+	if(i_stack.data == 0){
+
 	}
-
-	getsym();
-
+	print_intermediate();
 }
 
 void outblock(void){
@@ -403,5 +542,133 @@ void condition(int index){
 	}else{
 		error("syntax error in condition");
 	}
+
+}
+
+void push(char* token){
+	if(stack.head >= STACK_SIZE){
+		error("stack over flow");
+	}
+
+	strcpy(stack.data[stack.head],token);
+	(stack.head)++;
+
+}
+
+char* pop(void){
+	char* ret;
+	if(stack.head == 0){
+		error("stack under flow");
+	}
+	(stack.head)--;
+	ret = stack.data[stack.head];
+
+	return ret;
+}
+
+void stack_initialize(void){
+	stack.head = 0;	
+}
+
+void i_push(char* intermediate){
+	if(i_stack.head >= 500){
+		error("stack over flow");
+	}
+
+	strcpy(i_stack.data[i_stack.head],intermediate);
+	i_stack.head++;
+
+}
+
+char* i_pop(void){
+	char* ret;
+	if(i_stack.head == 0){
+		error("stack under flow");
+	}
+	(i_stack.head)--;
+	ret = i_stack.data[i_stack.head];
+
+	return ret;
+}
+
+void i_stack_initialize(void){
+	i_stack.head = 0;	
+}
+
+void o_push(char* operand){
+	if(o_stack.head >= 100){
+		error("stack over flow");
+	}
+
+	strcpy(o_stack.data[o_stack.head],operand);
+	o_stack.head++;
+
+}
+
+char* o_pop(void){
+	char* ret;
+	if(o_stack.head == 0){
+		error("stack under flow");
+	}
+	(o_stack.head)--;
+	ret = o_stack.data[o_stack.head];
+
+	return ret;
+}
+
+void o_stack_initialize(void){
+	o_stack.head = 0;	
+}
+
+
+// @param a preOpe
+// @param b Ope
+// @return 	f(a) > f(b) = 1
+// 			f(a) = f(b) = 0
+// 			f(a) < f(b) = -1
+int opeEval(char* a,char* b){
+	int f[8] = {2,2,4,4,6,0,11,0};
+	int g[8] = {1,1,3,3,15,10,0,0};
+	char ope[8][MAXIDLEN + 1] = {"+","-","*","div","!","(",")","$"};
+
+	int f_eval = -1;
+	int g_eval = -1;
+
+	int i;
+	for(i=0;i<8;i++){
+		if(strcmp(a,ope[i]) == 0){
+			f_eval = f[i];
+		}
+		if(strcmp(b,ope[i]) == 0){
+			g_eval = g[i];
+		}
+	}
+
+	if(f_eval == -1 || g_eval == -1){
+		error("syntax error");
+	}
+
+	if(f_eval > g_eval){
+		return 1;
+	}else if(f_eval == g_eval){
+		return 0;
+	}else{
+		return -1;
+	}
+
+}
+
+// @return c = integer = true; 
+bool checkDigit(char * c)
+{
+
+    int i;
+
+    for (i=0; i<strlen(c); i++) {
+        if (!(isdigit(c[i]))) {
+            return false;
+        } 
+    }
+    return true;
 
 }

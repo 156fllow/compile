@@ -9,6 +9,9 @@
 #define EXPRESSION_BASEADDR 1100
 #define TERM_BASEADDR 1200
 #define FACTOR_BASEADDR 1300
+#define STACK_SIZE 1000
+
+#define ENDMARKER '$'
 
 extern TOKEN tok;
 extern FILE *infile;
@@ -23,6 +26,20 @@ void condition(int);
 void print_symboltable(void);
 void term(int);
 void factor(int);
+int opeEval(char*,char*);
+bool checkDigit(char*);
+
+void stack_initialize(void);
+void i_stack_initialize(void);
+void o_stack_initialize(void);
+void push(char*);
+char* pop(void);
+void i_push(char*);
+char* i_pop(void);
+void o_push(char*);
+char* o_pop(void);
+
+
 
 typedef struct{
     int addr;
@@ -38,6 +55,27 @@ typedef struct{
 
 v_entry v_table[S_TABLELEN];
 int v_label = 0;
+
+typedef struct{
+    int head;
+    char data[STACK_SIZE][MAXIDLEN];
+}Stack;
+
+typedef struct{
+    int head;
+    char data[500][50];
+}intermediate_stack;
+
+typedef struct{
+    int head;
+    char data[100][10];
+}operand_stack;
+
+Stack stack;
+
+intermediate_stack i_stack;
+
+operand_stack o_stack;
 
 int jmp_label = 0;
 
