@@ -3,6 +3,7 @@
 #include <getsym.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 #define S_TABLELEN 32
 #define VAR_BASEADDR 1000

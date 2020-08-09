@@ -241,7 +241,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -272,7 +272,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -299,7 +299,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -323,7 +323,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -347,7 +347,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -371,7 +371,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -395,7 +395,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -428,7 +428,7 @@ void expression(int n){
 						strcpy(t1,pop());
 						o_pop();
 						char intermediate_temp[50]; 
-						sprintf(intermediate_temp,"%s,%s,%s,T%d",t2,t1,t3,label_num);
+						sprintf(intermediate_temp,"%s\t%s\t%s\tT%d",t2,t1,t3,label_num);
 						i_push(intermediate_temp);
 						char t_push[MAXIDLEN + 1];
 						sprintf(t_push,"T%d",label_num);
@@ -448,11 +448,192 @@ void expression(int n){
 	}while(true);
 
 
-	E:;
-	if(i_stack.data == 0){
+	E:
 
-	}
 	print_intermediate();
+
+	if(i_stack.head == 0){
+		char value[MAXIDLEN + 1];
+		strcpy(value,pop());
+		if(checkDigit(value)){
+			int value_int = atoi(value);
+			if(-32768<=value_int && value_int <=32767){
+				fprintf(outfile,"loadi r%d,%s\n",n,value);
+			}else{
+				fprintf(outfile,"load r%d,label%d\n",n,v_label);
+				v_table[v_label].label_count = v_label;
+				v_table[v_label].value = value_int;
+				v_label++;
+			}
+		}else{
+			int i;
+			int var_address = -1;
+			for(i=0;i<S_TABLELEN;i++){
+				if(strcmp(value,s_table[i].v) == 0){
+					var_address = s_table[i].addr;
+					break;
+				}
+			}
+			fprintf(outfile,"load r%d,%d\n",n,var_address);
+		}
+	}else{
+		if(n != 0){
+			fprintf(outfile,"push r0\n");
+		}
+		if(n != 1){
+			fprintf(outfile,"push r1\n");
+		}
+		if(n != 2){
+			fprintf(outfile,"push r2\n");
+		}
+		if(n != 3){
+			fprintf(outfile,"push r3\n");
+		}
+		int i;
+		int register_count = 0;
+		char register_mem[4][MAXIDLEN + 1] = {"\0","\0","\0","\0"};
+		for(i=0;i<i_stack.head;i++){
+
+			char ope[10];
+			char src1[MAXIDLEN+1];
+			char src2[MAXIDLEN+1];
+			char dst[MAXIDLEN+1];
+			int register1 = -1;
+			int register2 = -1;
+
+			sscanf(i_stack.data[i],"%s\t%s\t%s\t%s",ope,src1,src2,dst);
+			printf("ope=%s\tsrc1=%s\tsrc2=%s\tdst=%s\n",ope,src1,src2,dst);
+
+			// register cache scan
+			int j;
+			for(j=0;j<4;j++){
+				if(strcmp(src1,register_mem[j]) == 0){
+					register1 = j;
+				}
+				if(strcmp(src2,register_mem[j]) == 0){
+					register2 = j;
+				}
+			}
+
+			// register point move
+			while(true){
+				if(register1 == register_count){
+					register_count = (register_count + 1) % 4;
+				}else if(register2 == register_count){
+					register_count = (register_count + 1) % 4;
+				}else{
+					break;
+				}
+			}
+
+			if(register1 == -1){
+				if(checkDigit(src1) == true){
+					int src1_int = atoi(src1);
+					if(-32768 <= src1_int && src1_int <= 32767){
+						fprintf(outfile,"loadi r%d,%s\n",register_count,src1);
+						register1 = register_count;
+						strcpy(register_mem[register1],src1);
+					}else{
+						fprintf(outfile,"load r%d,label%d\n",register_count,v_label);
+						v_table[v_label].label_count = v_label;
+						v_table[v_label].value = src1_int;
+						v_label++;
+						register1 = register_count;
+						strcpy(register_mem[register1],src1);
+					}
+				}else{
+					// identifier read
+					int i_read;
+					int var_address = -1;
+					for(i_read=0;i_read<S_TABLELEN;i_read++){
+						if(strcmp(src1,s_table[i_read].v) == 0){
+							var_address = s_table[i_read].addr;
+							break;
+						}
+					}
+					fprintf(outfile,"load r%d,%d\n",register_count,var_address);
+					register1 = register_count;
+					strcpy(register_mem[register1],src1);
+				}
+			}
+
+			// register point move
+			while(true){
+				if(register1 == register_count){
+					register_count = (register_count + 1) % 4;
+				}else if(register2 == register_count){
+					register_count = (register_count + 1) % 4;
+				}else{
+					break;
+				}
+			}
+
+			if(register2 == -1){
+				if(checkDigit(src2) == true){
+					int src2_int = atoi(src2);
+					if(-32768 <= src2_int && src2_int <= 32767){
+						fprintf(outfile,"loadi r%d,%s\n",register_count,src2);
+						register2 = register_count;
+						strcpy(register_mem[register2],src2);
+					}else{
+						fprintf(outfile,"load r%d,label%d\n",register_count,v_label);
+						v_table[v_label].label_count = v_label;
+						v_table[v_label].value = src2_int;
+						v_label++;
+						register2 = register_count;
+						strcpy(register_mem[register1],src2);
+					}
+				}else{
+					// identifier read
+					int i_read;
+					int var_address = -1;
+					for(i_read=0;i_read<S_TABLELEN;i_read++){
+						if(strcmp(src2,s_table[i_read].v) == 0){
+							var_address = s_table[i_read].addr;
+							break;
+						}
+					}
+					fprintf(outfile,"load r%d,%d\n",register_count,var_address);
+					register2 = register_count;
+					strcpy(register_mem[register2],src2);
+				}
+			}
+
+			if(strcmp(ope,"+") == 0){
+				fprintf(outfile,"addr r%d,r%d\n",register1,register2);
+				strcpy(register_mem[register1],dst);
+			}else if(strcmp(ope,"-") == 0){
+				fprintf(outfile,"subr r%d,r%d\n",register1,register2);
+				strcpy(register_mem[register1],dst);
+			}else if(strcmp(ope,"*") == 0){
+				fprintf(outfile,"mulr r%d,r%d\n",register1,register2);
+				strcpy(register_mem[register1],dst);
+			}else if(strcmp(ope,"div") == 0){
+				fprintf(outfile,"divr r%d,r%d\n",register1,register2);
+				strcpy(register_mem[register1],dst);
+			}
+
+			if(i == i_stack.head-1){
+				if(register1 != n){
+					fprintf(outfile,"loadr r%d,r%d\n",n,register1);
+				}
+			}
+
+		}
+		if(n != 3){
+			fprintf(outfile,"pop r3\n");
+		}
+		if(n != 2){
+			fprintf(outfile,"pop r2\n");
+		}
+		if(n != 1){
+			fprintf(outfile,"pop r1\n");
+		}
+		if(n != 0){
+			fprintf(outfile,"pop r0\n");
+		}
+	}
+	
 }
 
 void outblock(void){
