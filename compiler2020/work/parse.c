@@ -477,18 +477,13 @@ void expression(int n){
 			fprintf(outfile,"load r%d,%d\n",n,var_address);
 		}
 	}else{
-		if(n != 0){
-			fprintf(outfile,"push r0\n");
-		}
-		if(n != 1){
-			fprintf(outfile,"push r1\n");
-		}
-		if(n != 2){
-			fprintf(outfile,"push r2\n");
-		}
-		if(n != 3){
-			fprintf(outfile,"push r3\n");
-		}
+		// invalid = -1
+		// clean = 0
+		// dirty = 1,2,3,4
+		
+		int register_check[4] = {0,0,0,0};
+		register_check[n] = -1;
+		int register_check_count = 1;
 		int i;
 		int register_count = 0;
 		char register_mem[4][MAXIDLEN + 1] = {"\0","\0","\0","\0"};
@@ -526,14 +521,25 @@ void expression(int n){
 				}
 			}
 
+
 			if(register1 == -1){
 				if(checkDigit(src1) == true){
 					int src1_int = atoi(src1);
 					if(-32768 <= src1_int && src1_int <= 32767){
+						if(register_check[register_count] == 0){
+							fprintf(outfile,"push r%d\n",register_count);
+							register_check[register_count] = register_check_count;
+							register_check_count++;
+						}
 						fprintf(outfile,"loadi r%d,%s\n",register_count,src1);
 						register1 = register_count;
 						strcpy(register_mem[register1],src1);
 					}else{
+						if(register_check[register_count] == 0){
+							fprintf(outfile,"push r%d\n",register_count);
+							register_check[register_count] = register_check_count;
+							register_check_count++;
+						}
 						fprintf(outfile,"load r%d,label%d\n",register_count,v_label);
 						v_table[v_label].label_count = v_label;
 						v_table[v_label].value = src1_int;
@@ -550,6 +556,11 @@ void expression(int n){
 							var_address = s_table[i_read].addr;
 							break;
 						}
+					}
+					if(register_check[register_count] == 0){
+						fprintf(outfile,"push r%d\n",register_count);
+						register_check[register_count] = register_check_count;
+						register_check_count;
 					}
 					fprintf(outfile,"load r%d,%d\n",register_count,var_address);
 					register1 = register_count;
@@ -572,10 +583,20 @@ void expression(int n){
 				if(checkDigit(src2) == true){
 					int src2_int = atoi(src2);
 					if(-32768 <= src2_int && src2_int <= 32767){
+						if(register_check[register_count] == 0){
+							fprintf(outfile,"push r%d\n",register_count);
+							register_check[register_count] = register_check_count;
+							register_check_count++;
+						}
 						fprintf(outfile,"loadi r%d,%s\n",register_count,src2);
 						register2 = register_count;
 						strcpy(register_mem[register2],src2);
 					}else{
+						if(register_check[register_count] == 0){
+							fprintf(outfile,"push r%d\n",register_count);
+							register_check[register_count] = register_check_count;
+							register_check_count++;
+						}
 						fprintf(outfile,"load r%d,label%d\n",register_count,v_label);
 						v_table[v_label].label_count = v_label;
 						v_table[v_label].value = src2_int;
@@ -593,12 +614,17 @@ void expression(int n){
 							break;
 						}
 					}
+					if(register_check[register_count] == 0){
+						fprintf(outfile,"push r%d\n",register_count);
+						register_check[register_count] = register_check_count;
+						register_check_count++;
+					}
 					fprintf(outfile,"load r%d,%d\n",register_count,var_address);
 					register2 = register_count;
 					strcpy(register_mem[register2],src2);
 				}
 			}
-
+			
 			if(strcmp(ope,"+") == 0){
 				fprintf(outfile,"addr r%d,r%d\n",register1,register2);
 				strcpy(register_mem[register1],dst);
@@ -618,20 +644,19 @@ void expression(int n){
 					fprintf(outfile,"loadr r%d,r%d\n",n,register1);
 				}
 			}
+	
+		}
+		
+		int i_register;
+		int j_register;
+		for(i_register=1;i_register<=4;i_register++){
+			for(j_register=0;j_register<4;j_register++){
+				if(register_check[j_register] == i_register){
+					fprintf(outfile,"pop r%d\n",j_register);
+				}
+			}
+		}
 
-		}
-		if(n != 3){
-			fprintf(outfile,"pop r3\n");
-		}
-		if(n != 2){
-			fprintf(outfile,"pop r2\n");
-		}
-		if(n != 1){
-			fprintf(outfile,"pop r1\n");
-		}
-		if(n != 0){
-			fprintf(outfile,"pop r0\n");
-		}
 	}
 	
 }
@@ -663,10 +688,10 @@ void outblock(void){
 }
 
 void condition(int index){
-	fprintf(outfile,"push r0\n");
-	expression(0);
-	fprintf(outfile,"push r1\n");
-	fprintf(outfile,"loadr r1,r0\n");
+	// fprintf(outfile,"push r0\n");
+	expression(1);
+	// fprintf(outfile,"push r1\n");
+	// fprintf(outfile,"loadr r1,r0\n");
 	print_tok();
 	if(tok.attr == SYMBOL){
 		if(tok.value == EQL){
@@ -674,48 +699,48 @@ void condition(int index){
 			// print_tok();
 			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
-			fprintf(outfile,"pop r1\n");
-			fprintf(outfile,"pop r0\n");
+			// fprintf(outfile,"pop r1\n");
+			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jnz L%d\n",index);
 		}else if(tok.value == NOTEQL){
 			getsym();
 			// print_tok();
 			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
-			fprintf(outfile,"pop r1\n");
-			fprintf(outfile,"pop r0\n");
+			// fprintf(outfile,"pop r1\n");
+			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jz L%d\n",index);
 		}else if(tok.value == LESSTHAN){
 			getsym();
 			// print_tok();
 			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
-			fprintf(outfile,"pop r1\n");
-			fprintf(outfile,"pop r0\n");
+			// fprintf(outfile,"pop r1\n");
+			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jge L%d\n",index);
 		}else if(tok.value == GRTRTHAN){
 			getsym();
 			// print_tok();
 			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
-			fprintf(outfile,"pop r1\n");
-			fprintf(outfile,"pop r0\n");
+			// fprintf(outfile,"pop r1\n");
+			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jle L%d\n",index);
 		}else if(tok.value == LESSEQL){
 			getsym();
 			// print_tok();
 			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
-			fprintf(outfile,"pop r1\n");
-			fprintf(outfile,"pop r0\n");
+			// fprintf(outfile,"pop r1\n");
+			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jgt L%d\n",index);
 		}else if(tok.value == GRTREQL){
 			getsym();
 			// print_tok();
 			expression(0);
 			fprintf(outfile,"cmpr r1,r0\n");
-			fprintf(outfile,"pop r1\n");
-			fprintf(outfile,"pop r0\n");
+			// fprintf(outfile,"pop r1\n");
+			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jlt L%d\n",index);
 		}else{
 			error("syntax error in condition");
@@ -805,7 +830,7 @@ void o_stack_initialize(void){
 // @param a preOpe
 // @param b Ope
 // @return 	f(a) > f(b) = 1
-// 			f(a) = f(b) = 0
+// 			f(a) == f(b) = 0
 // 			f(a) < f(b) = -1
 int opeEval(char* a,char* b){
 	int f[8] = {2,2,4,4,6,0,11,0};
@@ -839,7 +864,7 @@ int opeEval(char* a,char* b){
 
 }
 
-// @return c = integer = true; 
+// @return c == integer = true; 
 bool checkDigit(char * c)
 {
 
