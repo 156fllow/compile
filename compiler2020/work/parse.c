@@ -1,4 +1,5 @@
 #include "parse.h"
+#include "rc.c"
 
 void compiler(void)
 {
@@ -101,10 +102,28 @@ void statement(void){
 		print_tok();
 		if(tok.value == BECOMES){
 			getsym();
-			expression(0);
-			fprintf(outfile,"store r0,%d\n",var_address);
+			int n = getRegister();
+			expression(n);
+			fprintf(outfile,"store r%d,%d\n",n,var_address);
+			freeRegister(n);
 		}else{
-			error("NOT FOUND BECOMS");
+			// inline paramlist 
+			if(tok.value == LPAREN){
+				print_tok();
+			}else{
+				error("not found pramlist");
+			}
+			do{
+				getsym();
+				expression(0);
+				print_tok();
+			}while(tok.value == COMMA);
+			if(tok.value == RPAREN){
+				getsym();
+				print_tok();
+			}
+			
+			
 		}
 
 	}else if(tok.attr == RWORD){
@@ -171,8 +190,10 @@ void statement(void){
 				int flag = -1;
 				for(i=0;i<S_TABLELEN;i++){
 					if(strcmp(tok.charvalue,s_table[i].v) == 0){
-						fprintf(outfile,"load r0,%d\n",s_table[i].addr);
-						fprintf(outfile,"writed r0\n");
+						int n = getRegister();
+						fprintf(outfile,"load r%d,%d\n",n,s_table[i].addr);
+						fprintf(outfile,"writed r%d\n",n);
+						freeRegister(n);
 						flag = 1;
 						break;
 					}
@@ -186,14 +207,18 @@ void statement(void){
 				getsym();
 				print_tok();
 				if(tok.value == COMMA){
-					fprintf(outfile,"loadi r0,' '\n");
-					fprintf(outfile,"writec r0\n");
+					int n = getRegister();
+					fprintf(outfile,"loadi r%d,' '\n",n);
+					fprintf(outfile,"writec r%d\n",n);
+					freeRegister(n);
 					getsym();
 					print_tok();
 				}
 			}
-			fprintf(outfile,"loadi r0,'\\n'\n");
-			fprintf(outfile,"writec r0\n");
+			int n = getRegister();
+			fprintf(outfile,"loadi r%d,'\\n'\n",n);
+			fprintf(outfile,"writec r%d\n",n);
+			freeRegister(n);
 		}
 	}else{
 		error("syntax error in statement");
@@ -201,7 +226,7 @@ void statement(void){
 }
 
 // rnに計算結果を返す
-void expression(int n){
+void expression(int target){
 	print_tok();
 	i_stack_initialize();
 	o_stack_initialize();
@@ -458,9 +483,9 @@ void expression(int n){
 		if(checkDigit(value)){
 			int value_int = atoi(value);
 			if(-32768<=value_int && value_int <=32767){
-				fprintf(outfile,"loadi r%d,%s\n",n,value);
+				fprintf(outfile,"loadi r%d,%s\n",target,value);
 			}else{
-				fprintf(outfile,"load r%d,label%d\n",n,v_label);
+				fprintf(outfile,"load r%d,label%d\n",target,v_label);
 				v_table[v_label].label_count = v_label;
 				v_table[v_label].value = value_int;
 				v_label++;
@@ -474,18 +499,44 @@ void expression(int n){
 					break;
 				}
 			}
-			fprintf(outfile,"load r%d,%d\n",n,var_address);
+			fprintf(outfile,"load r%d,%d\n",target,var_address);
 		}
 	}else{
-		// invalid = -1
-		// clean = 0
-		// dirty = 1,2,3,4
-		
-		int register_check[4] = {0,0,0,0};
-		register_check[n] = -1;
-		int register_check_count = 1;
+		int T[100]={0};
 		int i;
-		int register_count = 0;
+		for(i=0;i<i_stack.head;i++){
+			char s1[10];
+			char s2[MAXIDLEN+1];
+			char s3[MAXIDLEN+1];
+			char s4[MAXIDLEN+1];
+			int index1 = -1;
+			int index2 = -1;
+			int index3 = -1;
+			int index4 = -1;
+			
+			sscanf(i_stack.data[i],"%s\t%s\t%s\t%s",s1,s2,s3,s4);
+			// printf("s2=%s",s2);
+			sscanf(s1,"T%d",&index1);
+			sscanf(s2,"T%d",&index2);
+			sscanf(s3,"T%d",&index3);
+			sscanf(s4,"T%d",&index4);
+			
+			if(index1 != -1){
+				T[index1]++;
+			}
+			if(index2 != -1){
+				T[index2]++;
+			}
+			if(index3 != -1){
+				T[index3]++;
+			}
+			if(index4 != -1){
+				T[index4]++;
+			}
+		}
+
+
+		
 		char register_mem[4][MAXIDLEN + 1] = {"\0","\0","\0","\0"};
 		for(i=0;i<i_stack.head;i++){
 
@@ -499,52 +550,49 @@ void expression(int n){
 			sscanf(i_stack.data[i],"%s\t%s\t%s\t%s",ope,src1,src2,dst);
 			printf("ope=%s\tsrc1=%s\tsrc2=%s\tdst=%s\n",ope,src1,src2,dst);
 
+			int index1 = -1;
+			int index2 = -1;
+			int index3 = -1;
+
+			sscanf(src1,"T%d",&index1);
+			sscanf(src2,"T%d",&index2);
+			sscanf(dst,"T%d",&index3);
+			if(index1 != -1){
+				T[index1]--;
+			}
+			if(index2 != -1){
+				T[index2]--;
+			}
+			if(index3 != -1){
+				T[index3]--;
+			}
+
 			// register cache scan
 			int j;
 			for(j=0;j<4;j++){
 				if(strcmp(src1,register_mem[j]) == 0){
 					register1 = j;
+					rewordResiter(j);
 				}
 				if(strcmp(src2,register_mem[j]) == 0){
 					register2 = j;
+					rewordResiter(j);
 				}
 			}
-
-			// register point move
-			while(true){
-				if(register1 == register_count){
-					register_count = (register_count + 1) % 4;
-				}else if(register2 == register_count){
-					register_count = (register_count + 1) % 4;
-				}else{
-					break;
-				}
-			}
-
 
 			if(register1 == -1){
 				if(checkDigit(src1) == true){
 					int src1_int = atoi(src1);
 					if(-32768 <= src1_int && src1_int <= 32767){
-						if(register_check[register_count] == 0){
-							fprintf(outfile,"push r%d\n",register_count);
-							register_check[register_count] = register_check_count;
-							register_check_count++;
-						}
-						fprintf(outfile,"loadi r%d,%s\n",register_count,src1);
-						register1 = register_count;
+						register1 = getRegister();
+						fprintf(outfile,"loadi r%d,%s\n",register1,src1);
 						strcpy(register_mem[register1],src1);
 					}else{
-						if(register_check[register_count] == 0){
-							fprintf(outfile,"push r%d\n",register_count);
-							register_check[register_count] = register_check_count;
-							register_check_count++;
-						}
-						fprintf(outfile,"load r%d,label%d\n",register_count,v_label);
+						register1 = getRegister();
+						fprintf(outfile,"load r%d,label%d\n",register1,v_label);
 						v_table[v_label].label_count = v_label;
 						v_table[v_label].value = src1_int;
 						v_label++;
-						register1 = register_count;
 						strcpy(register_mem[register1],src1);
 					}
 				}else{
@@ -557,25 +605,9 @@ void expression(int n){
 							break;
 						}
 					}
-					if(register_check[register_count] == 0){
-						fprintf(outfile,"push r%d\n",register_count);
-						register_check[register_count] = register_check_count;
-						register_check_count;
-					}
-					fprintf(outfile,"load r%d,%d\n",register_count,var_address);
-					register1 = register_count;
+					register1 = getRegister();
+					fprintf(outfile,"load r%d,%d\n",register1,var_address);
 					strcpy(register_mem[register1],src1);
-				}
-			}
-
-			// register point move
-			while(true){
-				if(register1 == register_count){
-					register_count = (register_count + 1) % 4;
-				}else if(register2 == register_count){
-					register_count = (register_count + 1) % 4;
-				}else{
-					break;
 				}
 			}
 
@@ -583,25 +615,15 @@ void expression(int n){
 				if(checkDigit(src2) == true){
 					int src2_int = atoi(src2);
 					if(-32768 <= src2_int && src2_int <= 32767){
-						if(register_check[register_count] == 0){
-							fprintf(outfile,"push r%d\n",register_count);
-							register_check[register_count] = register_check_count;
-							register_check_count++;
-						}
-						fprintf(outfile,"loadi r%d,%s\n",register_count,src2);
-						register2 = register_count;
+						register2 = getRegister();
+						fprintf(outfile,"loadi r%d,%s\n",register2,src2);
 						strcpy(register_mem[register2],src2);
 					}else{
-						if(register_check[register_count] == 0){
-							fprintf(outfile,"push r%d\n",register_count);
-							register_check[register_count] = register_check_count;
-							register_check_count++;
-						}
-						fprintf(outfile,"load r%d,label%d\n",register_count,v_label);
+						register2 = getRegister();
+						fprintf(outfile,"load r%d,label%d\n",register2,v_label);
 						v_table[v_label].label_count = v_label;
 						v_table[v_label].value = src2_int;
 						v_label++;
-						register2 = register_count;
 						strcpy(register_mem[register1],src2);
 					}
 				}else{
@@ -614,13 +636,8 @@ void expression(int n){
 							break;
 						}
 					}
-					if(register_check[register_count] == 0){
-						fprintf(outfile,"push r%d\n",register_count);
-						register_check[register_count] = register_check_count;
-						register_check_count++;
-					}
-					fprintf(outfile,"load r%d,%d\n",register_count,var_address);
-					register2 = register_count;
+					register2 = getRegister();
+					fprintf(outfile,"load r%d,%d\n",register2,var_address);
 					strcpy(register_mem[register2],src2);
 				}
 			}
@@ -640,23 +657,26 @@ void expression(int n){
 			}
 
 			if(i == i_stack.head-1){
-				if(register1 != n){
-					fprintf(outfile,"loadr r%d,r%d\n",n,register1);
+				if(register1 != target){
+					fprintf(outfile,"loadr r%d,r%d\n",target,register1);
+				}
+			}
+
+			freeRegister(register1);
+			freeRegister(register2);
+			int i_register = 0;
+			for(i_register = 0;i_register<4;i_register++){
+				int num = -1;
+				sscanf(register_mem[i_register],"T%d",&num);
+				if(num != -1){
+					if(T[num] != 0){
+						rewordResiter(i_register);
+					}
 				}
 			}
 	
 		}
 		
-		int i_register;
-		int j_register;
-		for(i_register=1;i_register<=4;i_register++){
-			for(j_register=0;j_register<4;j_register++){
-				if(register_check[j_register] == i_register){
-					fprintf(outfile,"pop r%d\n",j_register);
-				}
-			}
-		}
-
 	}
 	
 }
@@ -674,10 +694,31 @@ void outblock(void){
 			getsym();
 			print_tok();
 		}while(tok.value == COMMA);
+
 		if(tok.value == SEMICOLON){
 			getsym();
-			statement();
 		}
+
+		while(true){
+			if(tok.attr == RWORD && tok.value == PROCEDURE){
+				print_tok();
+				getsym();
+				if(tok.attr == IDENTIFIER){
+					getsym();
+					inblock();
+				}else{
+					error("not found ident");
+				}
+				if(tok.value == SEMICOLON){
+					getsym();
+				}
+
+			}else{
+				break;
+			}
+		}
+
+		statement();
 	}
 	print_symboltable();
 	fprintf(outfile,"halt\n");
@@ -687,9 +728,55 @@ void outblock(void){
 	}
 }
 
+void inblock(void){
+	print_tok();
+	if(tok.value == LPAREN){
+		do{
+			getsym();
+			print_tok();
+			getsym();
+			print_tok();
+
+		}while(tok.value == COMMA);
+		if(tok.value == RPAREN){
+			getsym();
+		}else{
+			error("not found )");
+		}
+	}else{
+		error("not found (");
+	}
+	if(tok.value == SEMICOLON){
+		getsym();
+		print_tok();
+	}else{
+		error("not found ;");
+	}
+
+	if(tok.attr == RWORD && tok.value == VAR){
+		do{
+			getsym();
+			print_tok();
+			getsym();
+			print_tok();
+		}while(tok.value == COMMA);
+		if(tok.value == SEMICOLON){
+			print_tok();
+			getsym();
+		}
+	}
+
+	statement();
+
+
+}
+
 void condition(int index){
 	// fprintf(outfile,"push r0\n");
-	expression(1);
+	int register1 = -1;
+	int register2 = -1;
+	register1 = getRegister();
+	expression(register1);
 	// fprintf(outfile,"push r1\n");
 	// fprintf(outfile,"loadr r1,r0\n");
 	print_tok();
@@ -697,48 +784,54 @@ void condition(int index){
 		if(tok.value == EQL){
 			getsym();
 			// print_tok();
-			expression(0);
-			fprintf(outfile,"cmpr r1,r0\n");
+			register2 = getRegister();
+			expression(register2);
+			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jnz L%d\n",index);
 		}else if(tok.value == NOTEQL){
 			getsym();
 			// print_tok();
-			expression(0);
-			fprintf(outfile,"cmpr r1,r0\n");
+			register2 = getRegister();
+			expression(register2);
+			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jz L%d\n",index);
 		}else if(tok.value == LESSTHAN){
 			getsym();
 			// print_tok();
-			expression(0);
-			fprintf(outfile,"cmpr r1,r0\n");
+			register2 = getRegister();
+			expression(register2);
+			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jge L%d\n",index);
 		}else if(tok.value == GRTRTHAN){
 			getsym();
 			// print_tok();
-			expression(0);
-			fprintf(outfile,"cmpr r1,r0\n");
+			register2 = getRegister();
+			expression(register2);
+			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jle L%d\n",index);
 		}else if(tok.value == LESSEQL){
 			getsym();
 			// print_tok();
-			expression(0);
-			fprintf(outfile,"cmpr r1,r0\n");
+			register2 = getRegister();
+			expression(register2);
+			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jgt L%d\n",index);
 		}else if(tok.value == GRTREQL){
 			getsym();
 			// print_tok();
-			expression(0);
-			fprintf(outfile,"cmpr r1,r0\n");
+			register2 = getRegister();
+			expression(register2);
+			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jlt L%d\n",index);
@@ -748,6 +841,9 @@ void condition(int index){
 	}else{
 		error("syntax error in condition");
 	}
+
+	freeRegister(register1);
+	freeRegister(register2);
 
 }
 

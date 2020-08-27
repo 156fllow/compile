@@ -29,6 +29,7 @@ void term(int);
 void factor(int);
 int opeEval(char*,char*);
 bool checkDigit(char*);
+void inblock(void);
 
 void stack_initialize(void);
 void i_stack_initialize(void);
