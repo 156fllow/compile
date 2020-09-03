@@ -50,17 +50,40 @@ typedef struct{
 
 s_entry s_table[S_TABLELEN];
 
+// local var control
+typedef struct{
+    int head;
+    s_entry table[S_TABLELEN];
+}s_entry_p;
+
+s_entry_p s_table_procedure[S_TABLELEN];
+
+int s_table_count = 0;
+// --------------------------
+
+
+
 typedef struct{
     int label_count;
     int value;
 }v_entry;
 
+typedef struct{
+    int head;
+    char v[STACK_SIZE][MAXIDLEN + 1];
+}p_entry;
+
 v_entry v_table[S_TABLELEN];
+
 int v_label = 0;
+
+p_entry p_table;
+
+
 
 typedef struct{
     int head;
-    char data[STACK_SIZE][MAXIDLEN];
+    char data[STACK_SIZE][MAXIDLEN + 1];
 }Stack;
 
 typedef struct{

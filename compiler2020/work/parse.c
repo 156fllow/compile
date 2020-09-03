@@ -86,12 +86,34 @@ void statement(void){
 		// identifier read
 		int i;
 		int var_address = -1;
-		for(i=0;i<S_TABLELEN;i++){
-			if(strcmp(tok.charvalue,s_table[i].v) == 0){
-				var_address = s_table[i].addr;
-				break;
+		bool offset_flag = false;
+		char procedure_name[MAXIDLEN + 1];
+		
+		if(s_table_count != 0){
+			for(i=0;i<s_table_procedure[s_table_count].head;i++){
+				if(strcmp(tok.charvalue,s_table_procedure[s_table_count].table[i].v) == 0){
+					var_address = s_table_procedure[s_table_count].table[i].addr;
+					offset_flag = true;
+					break;
+				}
 			}
 		}
+
+		if(offset_flag == false){
+			for(i=0;i<S_TABLELEN;i++){
+				if(strcmp(tok.charvalue,s_table[i].v) == 0){
+					var_address = s_table[i].addr;
+					break;
+				}
+			}
+		}
+
+		for(i=0;i<p_table.head;i++){
+			if(strcmp(tok.charvalue,p_table.v[i]) == 0){
+				var_address = i;
+			}
+		}
+
 		if(var_address == -1){
 			char output[MAXIDLEN+10];
 			strcat(output,"not found ");
@@ -104,9 +126,15 @@ void statement(void){
 			getsym();
 			int n = getRegister();
 			expression(n);
-			fprintf(outfile,"store r%d,%d\n",n,var_address);
+			if(offset_flag == false){
+				fprintf(outfile,"store r%d,%d\n",n,var_address);
+			}else{
+				fprintf(outfile,"store r%d,%d(BR)\n",n,var_address);
+			}
 			freeRegister(n);
 		}else{
+		
+			int arg_count = 0;
 			// inline paramlist 
 			if(tok.value == LPAREN){
 				print_tok();
@@ -115,15 +143,19 @@ void statement(void){
 			}
 			do{
 				getsym();
-				expression(0);
-				print_tok();
+				int register_index = getRegister();
+				expression(register_index);
+				fprintf(outfile,"push r%d\n",register_index);
+				arg_count++;
+				freeRegister(register_index);
 			}while(tok.value == COMMA);
 			if(tok.value == RPAREN){
 				getsym();
 				print_tok();
 			}
 			
-			
+			fprintf(outfile,"call P%d\n",var_address);
+			fprintf(outfile,"subi SP,%d\n",arg_count);
 		}
 
 	}else if(tok.attr == RWORD){
@@ -188,16 +220,33 @@ void statement(void){
 			while(tok.attr == IDENTIFIER){
 				int i;
 				int flag = -1;
-				for(i=0;i<S_TABLELEN;i++){
-					if(strcmp(tok.charvalue,s_table[i].v) == 0){
-						int n = getRegister();
-						fprintf(outfile,"load r%d,%d\n",n,s_table[i].addr);
-						fprintf(outfile,"writed r%d\n",n);
-						freeRegister(n);
-						flag = 1;
-						break;
+				bool offset_flag = false;
+
+				if(s_table_count != 0){
+					for(i=0;i<s_table_procedure[s_table_count].head;i++){
+						if(strcmp(tok.charvalue,s_table_procedure[s_table_count].table[i].v) == 0){
+							int n = getRegister();
+							fprintf(outfile,"load r%d,%d(BR)\n",n,s_table_procedure[s_table_count].table[i].addr);
+							fprintf(outfile,"writed r%d\n",n);
+							freeRegister(n);
+							flag = 1;
+							break;
+						}
 					}
 				}
+				if(offset_flag == false){
+					for(i=0;i<S_TABLELEN;i++){
+						if(strcmp(tok.charvalue,s_table[i].v) == 0){
+							int n = getRegister();
+							fprintf(outfile,"load r%d,%d\n",n,s_table[i].addr);
+							fprintf(outfile,"writed r%d\n",n);
+							freeRegister(n);
+							flag = 1;
+							break;
+						}
+					}
+				}
+
 				if(flag == -1){
 					char output[MAXIDLEN+10];
 					strcat(output,"not found ");
@@ -230,6 +279,7 @@ void expression(int target){
 	print_tok();
 	i_stack_initialize();
 	o_stack_initialize();
+	int paren_flag = 0;
 	
 	o_push("$");
 	push("$");
@@ -386,6 +436,7 @@ void expression(int target){
 					}
 				}
 			}else if(tok.value == LPAREN){
+				paren_flag++;
 				while(true){
 					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
 						char t3[MAXIDLEN+1];
@@ -409,7 +460,8 @@ void expression(int target){
 						break;
 					}
 				}
-			}else if(tok.value == RPAREN){
+			}else if(tok.value == RPAREN && paren_flag > 0){
+				paren_flag--;
 				while(true){
 					if(opeEval(o_stack.data[o_stack.head-1],tok.charvalue) == 1){
 						char t3[MAXIDLEN+1];
@@ -493,13 +545,30 @@ void expression(int target){
 		}else{
 			int i;
 			int var_address = -1;
-			for(i=0;i<S_TABLELEN;i++){
-				if(strcmp(value,s_table[i].v) == 0){
-					var_address = s_table[i].addr;
-					break;
+			bool offset_flag = false;
+
+			if(s_table_procedure[s_table_count].head != 0){
+				for(i=0;i<s_table_procedure[s_table_count].head;i++){
+					if(strcmp(value,s_table_procedure[s_table_count].table[i].v) == 0){
+						var_address = s_table_procedure[s_table_count].table[i].addr;
+						offset_flag = true;
+						break;
+					}
 				}
 			}
-			fprintf(outfile,"load r%d,%d\n",target,var_address);
+			if(offset_flag == false){
+				for(i=0;i<S_TABLELEN;i++){
+					if(strcmp(value,s_table[i].v) == 0){
+						var_address = s_table[i].addr;
+						break;
+					}
+				}
+			}
+			if(offset_flag == true){
+				fprintf(outfile,"load r%d,%d(BR)\n",target,var_address);
+			}else{
+				fprintf(outfile,"load r%d,%d\n",target,var_address);
+			}
 		}
 	}else{
 		int T[100]={0};
@@ -599,14 +668,32 @@ void expression(int target){
 					// identifier read
 					int i_read;
 					int var_address = -1;
-					for(i_read=0;i_read<S_TABLELEN;i_read++){
-						if(strcmp(src1,s_table[i_read].v) == 0){
-							var_address = s_table[i_read].addr;
-							break;
+					bool offset_flag = false;
+
+					if(s_table_procedure[s_table_count].head != 0){
+						for(i_read=0;i_read<s_table_procedure[s_table_count].head;i_read++){
+							if(strcmp(src1,s_table_procedure[s_table_count].table[i_read].v) == 0){
+								var_address = s_table_procedure[s_table_count].table[i_read].addr;
+								offset_flag = true;
+								break;
+							}
 						}
 					}
+					if(offset_flag == false){
+						for(i_read=0;i_read<S_TABLELEN;i_read++){
+							if(strcmp(src1,s_table[i_read].v) == 0){
+								var_address = s_table[i_read].addr;
+								break;
+							}
+						}
+					}
+
 					register1 = getRegister();
-					fprintf(outfile,"load r%d,%d\n",register1,var_address);
+					if(offset_flag == true){
+						fprintf(outfile,"load r%d,%d(BR)\n",register1,var_address);
+					}else{
+						fprintf(outfile,"load r%d,%d\n",register1,var_address);
+					}
 					strcpy(register_mem[register1],src1);
 				}
 			}
@@ -630,14 +717,32 @@ void expression(int target){
 					// identifier read
 					int i_read;
 					int var_address = -1;
-					for(i_read=0;i_read<S_TABLELEN;i_read++){
-						if(strcmp(src2,s_table[i_read].v) == 0){
-							var_address = s_table[i_read].addr;
-							break;
+					bool offset_flag = false;
+
+					if(s_table_procedure[s_table_count].head != 0){
+						for(i_read=0;i_read<s_table_procedure[s_table_count].head;i_read++){
+							if(strcmp(src2,s_table_procedure[s_table_count].table[i_read].v) == 0){
+								var_address = s_table_procedure[s_table_count].table[i_read].addr;
+								offset_flag = true;
+								break;
+							}
 						}
 					}
+					if(offset_flag == false){
+						for(i_read=0;i_read<S_TABLELEN;i_read++){
+							if(strcmp(src2,s_table[i_read].v) == 0){
+								var_address = s_table[i_read].addr;
+								break;
+							}
+						}
+					}
+
 					register2 = getRegister();
-					fprintf(outfile,"load r%d,%d\n",register2,var_address);
+					if(offset_flag == true){
+						fprintf(outfile,"load r%d,%d(BR)\n",register2,var_address);
+					}else{
+						fprintf(outfile,"load r%d,%d\n",register2,var_address);
+					}
 					strcpy(register_mem[register2],src2);
 				}
 			}
@@ -682,18 +787,24 @@ void expression(int target){
 }
 
 void outblock(void){
+	p_table.head = 0;
+
 	int address = 0;
+	int address_diff = 0;
 	print_tok();
 	if(tok.attr == RWORD && tok.value == VAR){
 		do{
+			address_diff++;
 			getsym();
 			print_tok();
 			strcpy(s_table[address].v,tok.charvalue);
-			s_table[address].addr = address + VAR_BASEADDR;
+			s_table[address].addr = address;
 			address++;
 			getsym();
 			print_tok();
 		}while(tok.value == COMMA);
+		fprintf(outfile,"addi SP,%d\n",address_diff);
+		fprintf(outfile,"jmp MAIN\n");
 
 		if(tok.value == SEMICOLON){
 			getsym();
@@ -701,9 +812,15 @@ void outblock(void){
 
 		while(true){
 			if(tok.attr == RWORD && tok.value == PROCEDURE){
+				s_table_count++;
 				print_tok();
 				getsym();
 				if(tok.attr == IDENTIFIER){
+					strcpy(p_table.v[p_table.head],tok.charvalue);
+					fprintf(outfile,"P%d:\n",p_table.head);
+					p_table.head++;
+					fprintf(outfile,"push BR\n");
+					fprintf(outfile,"loadr BR,SP\n");
 					getsym();
 					inblock();
 				}else{
@@ -714,11 +831,13 @@ void outblock(void){
 				}
 
 			}else{
+				s_table_count--;
 				break;
 			}
 		}
-
+		fprintf(outfile,"MAIN:\n");
 		statement();
+	
 	}
 	print_symboltable();
 	fprintf(outfile,"halt\n");
@@ -729,15 +848,24 @@ void outblock(void){
 }
 
 void inblock(void){
+	s_table_procedure[s_table_count].head = 0;
+	int var_count_arg = 0;
 	print_tok();
 	if(tok.value == LPAREN){
 		do{
 			getsym();
 			print_tok();
+			strcpy(s_table_procedure[s_table_count].table[s_table_procedure[s_table_count].head].v,tok.charvalue);
+			s_table_procedure[s_table_count].head++;
+			var_count_arg++;
 			getsym();
 			print_tok();
 
 		}while(tok.value == COMMA);
+		int i;
+		for(i=0;i<s_table_procedure[s_table_count].head;i++){
+			s_table_procedure[s_table_count].table[i].addr = -var_count_arg + i - 1;
+		}
 		if(tok.value == RPAREN){
 			getsym();
 		}else{
@@ -753,10 +881,17 @@ void inblock(void){
 		error("not found ;");
 	}
 
+	int var_count_local = 0;
+
 	if(tok.attr == RWORD && tok.value == VAR){
+		int offset = 1;
 		do{
 			getsym();
-			print_tok();
+			strcpy(s_table_procedure[s_table_count].table[s_table_procedure[s_table_count].head].v,tok.charvalue);
+			s_table_procedure[s_table_count].table[s_table_procedure[s_table_count].head].addr = offset;
+			offset++;
+			s_table_procedure[s_table_count].head++;
+			var_count_local++;
 			getsym();
 			print_tok();
 		}while(tok.value == COMMA);
@@ -764,9 +899,13 @@ void inblock(void){
 			print_tok();
 			getsym();
 		}
+		fprintf(outfile,"addi SP,%d\n",var_count_local);
 	}
 
 	statement();
+	fprintf(outfile,"subi SP,%d\n",var_count_local);
+	fprintf(outfile,"pop BR\n");
+	fprintf(outfile,"return\n");
 
 
 }
