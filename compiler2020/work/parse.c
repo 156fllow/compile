@@ -275,7 +275,6 @@ void statement(void){
 	}
 }
 
-// rnに計算結果を返す
 int expression(){
 	print_tok();
 	i_stack_initialize();
@@ -621,6 +620,8 @@ int expression(){
 			int register1 = -1;
 			int register2 = -1;
 
+			bool register2_digit_flag = false;
+
 			sscanf(i_stack.data[i],"%s\t%s\t%s\t%s",ope,src1,src2,dst);
 			printf("ope=%s\tsrc1=%s\tsrc2=%s\tdst=%s\n",ope,src1,src2,dst);
 
@@ -707,9 +708,10 @@ int expression(){
 				if(checkDigit(src2) == true){
 					int src2_int = atoi(src2);
 					if(-32768 <= src2_int && src2_int <= 32767){
-						register2 = getRegister();
-						fprintf(outfile,"loadi r%d,%s\n",register2,src2);
+						// register2 = getRegister();
+						// fprintf(outfile,"loadi r%d,%s\n",register2,src2);
 						strcpy(register_mem[register2],src2);
+						register2_digit_flag = true;
 					}else{
 						register2 = getRegister();
 						fprintf(outfile,"load r%d,label%d\n",register2,v_label);
@@ -751,19 +753,36 @@ int expression(){
 					strcpy(register_mem[register2],src2);
 				}
 			}
+			if(register2_digit_flag == true){
+				if(strcmp(ope,"+") == 0){
+					fprintf(outfile,"addi r%d,%s\n",register1,src2);
+					strcpy(register_mem[register1],dst);
+				}else if(strcmp(ope,"-") == 0){
+					fprintf(outfile,"subi r%d,%s\n",register1,src2);
+					strcpy(register_mem[register1],dst);
+				}else if(strcmp(ope,"*") == 0){
+					fprintf(outfile,"muli r%d,%s\n",register1,src2);
+					strcpy(register_mem[register1],dst);
+				}else if(strcmp(ope,"div") == 0){
+					fprintf(outfile,"divi r%d,%s\n",register1,src2);
+					strcpy(register_mem[register1],dst);
+				}
+			}else{
 			
-			if(strcmp(ope,"+") == 0){
-				fprintf(outfile,"addr r%d,r%d\n",register1,register2);
-				strcpy(register_mem[register1],dst);
-			}else if(strcmp(ope,"-") == 0){
-				fprintf(outfile,"subr r%d,r%d\n",register1,register2);
-				strcpy(register_mem[register1],dst);
-			}else if(strcmp(ope,"*") == 0){
-				fprintf(outfile,"mulr r%d,r%d\n",register1,register2);
-				strcpy(register_mem[register1],dst);
-			}else if(strcmp(ope,"div") == 0){
-				fprintf(outfile,"divr r%d,r%d\n",register1,register2);
-				strcpy(register_mem[register1],dst);
+				if(strcmp(ope,"+") == 0){
+					fprintf(outfile,"addr r%d,r%d\n",register1,register2);
+					strcpy(register_mem[register1],dst);
+				}else if(strcmp(ope,"-") == 0){
+					fprintf(outfile,"subr r%d,r%d\n",register1,register2);
+					strcpy(register_mem[register1],dst);
+				}else if(strcmp(ope,"*") == 0){
+					fprintf(outfile,"mulr r%d,r%d\n",register1,register2);
+					strcpy(register_mem[register1],dst);
+				}else if(strcmp(ope,"div") == 0){
+					fprintf(outfile,"divr r%d,r%d\n",register1,register2);
+					strcpy(register_mem[register1],dst);
+				}
+
 			}
 
 			if(i == i_stack.head-1){
@@ -771,7 +790,9 @@ int expression(){
 			}else{
 				freeRegister(register1);
 			}
-			freeRegister(register2);
+			if(register2_digit_flag == false){
+				freeRegister(register2);
+			}
 			int i_register = 0;
 			for(i_register = 0;i_register<4;i_register++){
 				int num = -1;
