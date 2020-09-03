@@ -180,19 +180,22 @@ void statement(void){
 		else if (tok.value == IF){
 			getsym();
 			condition(jmp_label);
+			int target_label = jmp_label;
+			int target_endlabel;
+			jmp_label++;
 			if(tok.value == THEN){
 				getsym();
 				statement();
 				if(tok.value == ELSE){
-					fprintf(outfile,"jmp L%d\n",jmp_label+1);
+					target_endlabel = jmp_label;
+					jmp_label++;
+					fprintf(outfile,"jmp L%d\n",target_endlabel);
 				}
-				fprintf(outfile,"L%d:\n",jmp_label);
-				jmp_label++;
+				fprintf(outfile,"L%d:\n",target_label);
 				if(tok.value == ELSE){
 					getsym();
 					statement();
-					fprintf(outfile,"L%d:\n",jmp_label);
-					jmp_label++;
+					fprintf(outfile,"L%d:\n",target_endlabel);
 				}
 			}else{
 				error("Not found THEN");
