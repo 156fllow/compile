@@ -10,21 +10,25 @@ int register_check[4] = {0,0,0,0};
 int count = 0;
 
 int getRegister(){
-    if(register_check[0] == 0){
-        register_check[0] = 1;
-        return 0;
+    count++;
+    if(register_check[count % 4] == 0){
+        register_check[count % 4] = 1;
+        return count % 4;
     }
-    if(register_check[1] == 0){
-        register_check[1] = 1;
-        return 1;
+    count++;
+    if(register_check[count % 4] == 0){
+        register_check[count % 4] = 1;
+        return count % 4;
     }
-    if(register_check[2] == 0){
-        register_check[2] = 1;
-        return 2;
+    count++;
+    if(register_check[count % 4] == 0){
+        register_check[count % 4] = 1;
+        return count % 4;
     }
-    if(register_check[3] == 0){
-        register_check[3] = 1;
-        return 3;
+    count++;
+    if(register_check[count % 4] == 0){
+        register_check[count % 4] = 1;
+        return count % 4;
     }
 
     return -1;

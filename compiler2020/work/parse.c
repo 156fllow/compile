@@ -124,8 +124,7 @@ void statement(void){
 		print_tok();
 		if(tok.value == BECOMES){
 			getsym();
-			int n = getRegister();
-			expression(n);
+			int n = expression();
 			if(offset_flag == false){
 				fprintf(outfile,"store r%d,%d\n",n,var_address);
 			}else{
@@ -143,8 +142,7 @@ void statement(void){
 			}
 			do{
 				getsym();
-				int register_index = getRegister();
-				expression(register_index);
+				int register_index = expression();
 				fprintf(outfile,"push r%d\n",register_index);
 				arg_count++;
 				freeRegister(register_index);
@@ -278,7 +276,7 @@ void statement(void){
 }
 
 // rnに計算結果を返す
-void expression(int target){
+int expression(){
 	print_tok();
 	i_stack_initialize();
 	o_stack_initialize();
@@ -533,6 +531,7 @@ void expression(int target){
 	print_intermediate();
 
 	if(i_stack.head == 0){
+		int target  = getRegister();
 		char value[MAXIDLEN + 1];
 		strcpy(value,pop());
 		if(checkDigit(value)){
@@ -573,6 +572,9 @@ void expression(int target){
 				fprintf(outfile,"load r%d,%d\n",target,var_address);
 			}
 		}
+
+		return target;
+
 	}else{
 		int T[100]={0};
 		int i;
@@ -607,9 +609,9 @@ void expression(int target){
 			}
 		}
 
-
-		
+		int ret_register = -1;
 		char register_mem[4][MAXIDLEN + 1] = {"\0","\0","\0","\0"};
+
 		for(i=0;i<i_stack.head;i++){
 
 			char ope[10];
@@ -765,12 +767,10 @@ void expression(int target){
 			}
 
 			if(i == i_stack.head-1){
-				if(register1 != target){
-					fprintf(outfile,"loadr r%d,r%d\n",target,register1);
-				}
+				ret_register = register1;
+			}else{
+				freeRegister(register1);
 			}
-
-			freeRegister(register1);
 			freeRegister(register2);
 			int i_register = 0;
 			for(i_register = 0;i_register<4;i_register++){
@@ -784,6 +784,8 @@ void expression(int target){
 			}
 	
 		}
+
+		return ret_register;
 		
 	}
 	
@@ -807,10 +809,14 @@ void outblock(void){
 			print_tok();
 		}while(tok.value == COMMA);
 		fprintf(outfile,"addi SP,%d\n",address_diff);
-		fprintf(outfile,"jmp MAIN\n");
+
 
 		if(tok.value == SEMICOLON){
 			getsym();
+		}
+
+		if(tok.value == PROCEDURE){
+			fprintf(outfile,"jmp MAIN\n");
 		}
 
 		while(true){
@@ -838,7 +844,9 @@ void outblock(void){
 				break;
 			}
 		}
-		fprintf(outfile,"MAIN:\n");
+		if(p_table.head != 0){
+			fprintf(outfile,"MAIN:\n");
+		}
 		statement();
 	
 	}
@@ -917,8 +925,7 @@ void condition(int index){
 	// fprintf(outfile,"push r0\n");
 	int register1 = -1;
 	int register2 = -1;
-	register1 = getRegister();
-	expression(register1);
+	register1 = expression();
 	// fprintf(outfile,"push r1\n");
 	// fprintf(outfile,"loadr r1,r0\n");
 	print_tok();
@@ -926,8 +933,7 @@ void condition(int index){
 		if(tok.value == EQL){
 			getsym();
 			// print_tok();
-			register2 = getRegister();
-			expression(register2);
+			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
@@ -935,8 +941,7 @@ void condition(int index){
 		}else if(tok.value == NOTEQL){
 			getsym();
 			// print_tok();
-			register2 = getRegister();
-			expression(register2);
+			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
@@ -944,8 +949,7 @@ void condition(int index){
 		}else if(tok.value == LESSTHAN){
 			getsym();
 			// print_tok();
-			register2 = getRegister();
-			expression(register2);
+			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
@@ -953,8 +957,7 @@ void condition(int index){
 		}else if(tok.value == GRTRTHAN){
 			getsym();
 			// print_tok();
-			register2 = getRegister();
-			expression(register2);
+			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
@@ -962,8 +965,7 @@ void condition(int index){
 		}else if(tok.value == LESSEQL){
 			getsym();
 			// print_tok();
-			register2 = getRegister();
-			expression(register2);
+			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");
@@ -971,8 +973,7 @@ void condition(int index){
 		}else if(tok.value == GRTREQL){
 			getsym();
 			// print_tok();
-			register2 = getRegister();
-			expression(register2);
+			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
 			// fprintf(outfile,"pop r1\n");
 			// fprintf(outfile,"pop r0\n");

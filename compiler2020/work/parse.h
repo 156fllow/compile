@@ -21,7 +21,7 @@ extern FILE *outfile;
 void error(char *s);
 void statement(void);
 void outblock(void);
-void expression(int);
+int expression();
 void print_tok(void);
 void condition(int);
 void print_symboltable(void);
