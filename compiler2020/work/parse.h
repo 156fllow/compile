@@ -17,12 +17,12 @@ extern FILE *outfile;
 void error(char *s);
 void statement(void);
 void outblock(void);
-void expression(int);
+int expression(void);
 void print_tok(void);
 void condition(int);
 void print_symboltable(void);
-void term(int);
-void factor(int);
+int term(void);
+int factor(void);
 
 typedef struct{
     int addr;
