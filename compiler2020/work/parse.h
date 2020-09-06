@@ -6,10 +6,6 @@
 #include <ctype.h>
 
 #define S_TABLELEN 32
-#define VAR_BASEADDR 1000
-#define EXPRESSION_BASEADDR 1100
-#define TERM_BASEADDR 1200
-#define FACTOR_BASEADDR 1300
 #define STACK_SIZE 1000
 
 #define ENDMARKER '$'
@@ -68,14 +64,13 @@ typedef struct{
     int value;
 }v_entry;
 
+v_entry v_table[S_TABLELEN];
+int v_label = 0;
+
 typedef struct{
     int head;
     char v[STACK_SIZE][MAXIDLEN + 1];
 }p_entry;
-
-v_entry v_table[S_TABLELEN];
-
-int v_label = 0;
 
 p_entry p_table;
 

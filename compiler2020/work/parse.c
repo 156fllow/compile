@@ -331,11 +331,7 @@ int expression(){
 				}
 				getsym();
 				print_tok();
-				// if(tok.value == MINUS){
-				// 	if(opeEval(o_stack.data[o_stack.head-1],"!") == 1){
 
-				// 	}
-				// }
 			}else{
 				while(true){
 					if(opeEval(o_stack.data[o_stack.head-1],"$") == 1){
@@ -588,7 +584,7 @@ int expression(){
 			int index4 = -1;
 			
 			sscanf(i_stack.data[i],"%s\t%s\t%s\t%s",s1,s2,s3,s4);
-			// printf("s2=%s",s2);
+			
 			sscanf(s1,"T%d",&index1);
 			sscanf(s2,"T%d",&index2);
 			sscanf(s3,"T%d",&index3);
@@ -943,61 +939,42 @@ void inblock(void){
 }
 
 void condition(int index){
-	// fprintf(outfile,"push r0\n");
+	
 	int register1 = -1;
 	int register2 = -1;
 	register1 = expression();
-	// fprintf(outfile,"push r1\n");
-	// fprintf(outfile,"loadr r1,r0\n");
+
 	print_tok();
 	if(tok.attr == SYMBOL){
 		if(tok.value == EQL){
 			getsym();
-			// print_tok();
 			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
-			// fprintf(outfile,"pop r1\n");
-			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jnz L%d\n",index);
 		}else if(tok.value == NOTEQL){
 			getsym();
-			// print_tok();
 			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
-			// fprintf(outfile,"pop r1\n");
-			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jz L%d\n",index);
 		}else if(tok.value == LESSTHAN){
 			getsym();
-			// print_tok();
 			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
-			// fprintf(outfile,"pop r1\n");
-			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jge L%d\n",index);
 		}else if(tok.value == GRTRTHAN){
 			getsym();
-			// print_tok();
 			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
-			// fprintf(outfile,"pop r1\n");
-			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jle L%d\n",index);
 		}else if(tok.value == LESSEQL){
 			getsym();
-			// print_tok();
 			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
-			// fprintf(outfile,"pop r1\n");
-			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jgt L%d\n",index);
 		}else if(tok.value == GRTREQL){
 			getsym();
-			// print_tok();
 			register2 = expression();
 			fprintf(outfile,"cmpr r%d,r%d\n",register1,register2);
-			// fprintf(outfile,"pop r1\n");
-			// fprintf(outfile,"pop r0\n");
 			fprintf(outfile,"jlt L%d\n",index);
 		}else{
 			error("syntax error in condition");
